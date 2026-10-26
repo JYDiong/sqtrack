@@ -4,9 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sqtrack"
-version = "0.1.0"
-description = "Mesoscale squall line feature tracking with parent-inheritance merge logic"
+version = "0.1.1"
+description = "Mesoscale squall line feature tracking with graph-based tracking"
 readme = "README.md"
+requires-python = ">=3.9"
 authors = [{ name = "DIONG JEONG YIK", email = "edwarddiong@gmail.com" }]
 license = { text = "MIT" }
 dependencies = [
@@ -17,8 +18,13 @@ dependencies = [
     "shapely",
     "scikit-image",
     "scipy",
-    "matplotlib"
+    "matplotlib",
+    "networkx"
 ]
 
 [project.urls]
 Homepage = "https://github.com/JYDiong/sqtrack"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sqtrack*"]

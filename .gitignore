@@ -1,10 +1,35 @@
+# Byte-compiled / optimized / cache files
 __pycache__/
-*.pyc
-.ipynb_checkpoints/
+*.py[cod]
+*$py.class
+
+# Data & outputs
+*.nc
 *.nc4
 *.csv
 output.txt
+*.log
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Virtual environments
 .venv/
-dist/
+venv/
+env/
+ENV/
+
+# Distribution & build artifacts
 build/
+dist/
 *.egg-info/
+.eggs/
+
+# IDE & OS-specific files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/

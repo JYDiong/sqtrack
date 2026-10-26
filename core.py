@@ -10,6 +10,7 @@ from shapely.affinity import translate
 from shapely.geometry import Polygon
 from shapely.geometry.polygon import orient
 from skimage.measure import find_contours
+import networkx as nx
 
 logger = logging.getLogger(__name__)
 
@@ -161,78 +162,178 @@ def compute_spatial_overlap_matrix(
     return res
 
 
-def track_squalls_parent_inheritance(
-    contour_sets, Time, overlap_threshold: float = 0.5
-):
+#def track_squalls_parent_inheritance(
+#    contour_sets, Time, overlap_threshold: float = 0.5
+#):
+#    times = pd.DatetimeIndex(Time)
+#    itimes = list(range(times.size))
+#    dt = times[1:] - times[:-1]
+#    dt = dt.insert(len(dt), dt[-1])
+#
+#    css, next_track_id = [], 0
+#
+#    cs_0 = contour_sets[0].copy()
+#    cs_0["time"], cs_0["itime"], cs_0["dtime"] = times[0], 0, dt[0]
+#    n_0 = len(cs_0)
+#    cs_0["id"] = list(range(next_track_id, next_track_id + n_0))
+#    cs_0["parent_id"] = -1
+#    next_track_id += n_0
+#    css.append(cs_0)
+#
+#    for i in itimes[1:]:
+#        cs_i = contour_sets[i].copy()
+#        cs_i["time"], cs_i["itime"], cs_i["dtime"] = times[i], i, dt[i]
+#
+#        cs_im1 = css[-1]
+#        dt_im1_s = dt[i - 1].total_seconds()
+#
+#        if cs_i.empty or cs_im1.empty:
+#            n_i = len(cs_i)
+#            cs_i["id"] = list(range(next_track_id, next_track_id + n_i))
+#            cs_i["parent_id"] = -1
+#            next_track_id += n_i
+#            css.append(cs_i)
+#            continue
+#
+#        ovs = compute_spatial_overlap_matrix(
+#            cs_i, project_forward_in_time(cs_im1, dt=dt_im1_s)
+#        )
+#
+#        assigned_ids, absorbed_parent_ids = [], []
+#
+#        for curr_idx, overlaps in ovs.items():
+#            valid_parents = {
+#                prev_idx: frac
+#                for prev_idx, frac in overlaps.items()
+#                if frac >= overlap_threshold
+#            }
+#
+#            if not valid_parents:
+#                assigned_ids.append(next_track_id)
+#                absorbed_parent_ids.append(-1)
+#                next_track_id += 1
+#            elif len(valid_parents) == 1:
+#                parent_idx = list(valid_parents.keys())[0]
+#                assigned_ids.append(cs_im1.loc[parent_idx, "id"])
+#                absorbed_parent_ids.append(-1)
+#            else:
+#                dominant_parent_idx = max(
+#                    valid_parents, key=lambda k: cs_im1.loc[k, "area_km2"]
+#                )
+#                primary_id = cs_im1.loc[dominant_parent_idx, "id"]
+#                assigned_ids.append(primary_id)
+#
+#                secondary_parents = [
+#                    cs_im1.loc[k, "id"]
+#                    for k in valid_parents
+#                    if k != dominant_parent_idx
+#                ]
+#                absorbed_parent_ids.append(
+#                    secondary_parents[0] if secondary_parents else -1
+#                )
+#
+#        cs_i["id"] = assigned_ids
+#        cs_i["parent_id"] = absorbed_parent_ids
+#        css.append(cs_i)
+#
+#    return pd.concat(css, ignore_index=True)
+
+def track_squalls_graph(
+    contour_sets: list, Time, overlap_threshold: float = 0.5
+) -> tuple[pd.DataFrame, nx.DiGraph]:
     times = pd.DatetimeIndex(Time)
-    itimes = list(range(times.size))
-    dt = times[1:] - times[:-1]
-    dt = dt.insert(len(dt), dt[-1])
+    G = nx.DiGraph()
 
-    css, next_track_id = [], 0
+    # Initialize metadata and build graph nodes
+    css = []
+    for t_idx, df in enumerate(contour_sets):
+        df_copy = df.copy()
+        df_copy["time"] = times[t_idx]
+        df_copy["itime"] = t_idx
+        df_copy["feature_idx"] = df_copy.index
+        css.append(df_copy)
 
-    cs_0 = contour_sets[0].copy()
-    cs_0["time"], cs_0["itime"], cs_0["dtime"] = times[0], 0, dt[0]
-    n_0 = len(cs_0)
-    cs_0["id"] = list(range(next_track_id, next_track_id + n_0))
-    cs_0["parent_id"] = -1
-    next_track_id += n_0
-    css.append(cs_0)
+        for f_idx, row in df_copy.iterrows():
+            G.add_node(
+                (t_idx, f_idx),
+                time=times[t_idx],
+                area=row.get("area_km2", 0),
+                geometry=row["geometry"],
+            )
 
-    for i in itimes[1:]:
-        cs_i = contour_sets[i].copy()
-        cs_i["time"], cs_i["itime"], cs_i["dtime"] = times[i], i, dt[i]
+    # Build overlap edges
+    for t_idx in range(len(css) - 1):
+        cs_curr = css[t_idx]
+        cs_next = css[t_idx + 1]
 
-        cs_im1 = css[-1]
-        dt_im1_s = dt[i - 1].total_seconds()
-
-        if cs_i.empty or cs_im1.empty:
-            n_i = len(cs_i)
-            cs_i["id"] = list(range(next_track_id, next_track_id + n_i))
-            cs_i["parent_id"] = -1
-            next_track_id += n_i
-            css.append(cs_i)
+        if cs_curr.empty or cs_next.empty:
             continue
 
+        dt_s = (times[t_idx + 1] - times[t_idx]).total_seconds()
         ovs = compute_spatial_overlap_matrix(
-            cs_i, project_forward_in_time(cs_im1, dt=dt_im1_s)
+            cs_next, project_forward_in_time(cs_curr, dt=dt_s)
         )
 
-        assigned_ids, absorbed_parent_ids = [], []
+        for next_idx, overlaps in ovs.items():
+            for curr_idx, frac in overlaps.items():
+                if frac >= overlap_threshold:
+                    G.add_edge((t_idx, curr_idx), (t_idx + 1, next_idx), weight=frac)
 
-        for curr_idx, overlaps in ovs.items():
-            valid_parents = {
-                prev_idx: frac
-                for prev_idx, frac in overlaps.items()
-                if frac >= overlap_threshold
-            }
+    # Extract connected component families (Merges + Splits)
+    components = list(nx.weakly_connected_components(G))
+    for family_id, comp in enumerate(components):
+        for node in comp:
+            t_idx, f_idx = node
+            css[t_idx].loc[f_idx, "family_id"] = family_id
 
-            if not valid_parents:
-                assigned_ids.append(next_track_id)
-                absorbed_parent_ids.append(-1)
-                next_track_id += 1
-            elif len(valid_parents) == 1:
-                parent_idx = list(valid_parents.keys())[0]
-                assigned_ids.append(cs_im1.loc[parent_idx, "id"])
-                absorbed_parent_ids.append(-1)
+    # Assign unique track IDs handling Merges & Splits cleanly
+    next_track_num = 0
+    node_to_track_id = {}
+
+    for t_idx, df_frame in enumerate(css):
+        if df_frame.empty:
+            continue
+
+        assigned_ids = []
+        for f_idx in df_frame.index:
+            node = (t_idx, f_idx)
+            parents = list(G.predecessors(node))
+
+            if not parents:
+                # 1. New birth
+                tid = f"track_{next_track_num}"
+                next_track_num += 1
+
+            elif len(parents) == 1:
+                p_node = parents[0]
+                children_of_parent = list(G.successors(p_node))
+
+                if len(children_of_parent) == 1:
+                    # 1-to-1 continuation
+                    tid = node_to_track_id[p_node]
+                else:
+                    # SPLIT EVENT: Dominant child keeps parent ID, secondary gets new track ID
+                    dominant_child = max(
+                        children_of_parent,
+                        key=lambda c: css[c[0]].loc[c[1], "area_km2"],
+                    )
+                    if node == dominant_child:
+                        tid = node_to_track_id[p_node]
+                    else:
+                        tid = f"track_{next_track_num}"
+                        next_track_num += 1
+
             else:
-                dominant_parent_idx = max(
-                    valid_parents, key=lambda k: cs_im1.loc[k, "area_km2"]
+                # MERGE EVENT: Inherit ID from largest parent
+                dominant_parent = max(
+                    parents, key=lambda p: css[p[0]].loc[p[1], "area_km2"]
                 )
-                primary_id = cs_im1.loc[dominant_parent_idx, "id"]
-                assigned_ids.append(primary_id)
+                tid = node_to_track_id[dominant_parent]
 
-                secondary_parents = [
-                    cs_im1.loc[k, "id"]
-                    for k in valid_parents
-                    if k != dominant_parent_idx
-                ]
-                absorbed_parent_ids.append(
-                    secondary_parents[0] if secondary_parents else -1
-                )
+            node_to_track_id[node] = tid
+            assigned_ids.append(tid)
 
-        cs_i["id"] = assigned_ids
-        cs_i["parent_id"] = absorbed_parent_ids
-        css.append(cs_i)
+        css[t_idx]["id"] = assigned_ids
 
-    return pd.concat(css, ignore_index=True)
+    full_df = pd.concat(css, ignore_index=True)
+    return full_df, G
