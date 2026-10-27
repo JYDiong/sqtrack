@@ -129,6 +129,24 @@ sqtrack/
 
 ---
 
+## Citation
+
+If you use `sqtrack` in your research or operational workflows, please cite the underlying methodology:
+
+> Diong, J.-Y., Xavier, P., Abdullah, M. F. A., & Schwendike, J. (2026). The characteristics of squall lines in the Southeast Asia region. *Quarterly Journal of the Royal Meteorological Society*, e70143. https://doi.org/10.1002/qj.70143
+
+### BibTeX
+
+```bibtex
+@article{diong2026characteristics,
+  author    = {Diong, Jeong-Yik and Xavier, Prince and Abdullah, M. F. A. and Schwendike, Juliane},
+  title     = {The characteristics of squall lines in the Southeast Asia region},
+  journal   = {Quarterly Journal of the Royal Meteorological Society},
+  year      = {2026},
+  doi       = {10.1002/qj.70143},
+  url       = {[https://doi.org/10.1002/qj.70143](https://doi.org/10.1002/qj.70143)}
+}
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
