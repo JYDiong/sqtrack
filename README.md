@@ -147,6 +147,8 @@ If you use `sqtrack` in your research or operational workflows, please cite the 
   url       = {[https://doi.org/10.1002/qj.70143](https://doi.org/10.1002/qj.70143)}
 }
 
+---
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
