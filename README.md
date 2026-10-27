@@ -3,6 +3,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub](https://img.shields.io/badge/GitHub-JYDiong%2Fsqtrack-181717?logo=github)](https://github.com/JYDiong/sqtrack)
+[![DOI](https://img.shields.io/badge/DOI-10.1002%2Fqj.70143-blue)](https://doi.org/10.1002/qj.70143)
 
 Spatiotemporal tracking and morphological classification of squall systems from gridded precipitation data.
 
